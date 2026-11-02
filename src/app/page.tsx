@@ -178,7 +178,7 @@ export default function Home() {
               <AlertDescription>{evento.termosUsoTitle}</AlertDescription>
             </Alert>
             <Accordion type="single" collapsible>
-              <TicketForm preco={evento.preco} />
+              <TicketForm preco={evento.preco} eventoId={evento.id} />
             </Accordion>
           </CardContent>
         </Card>

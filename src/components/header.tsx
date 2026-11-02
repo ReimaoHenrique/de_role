@@ -3,11 +3,42 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Ticket, Home, Search, Settings } from "lucide-react";
+import {
+  Ticket,
+  Home,
+  Search,
+  Settings,
+  Github,
+  ChevronDown,
+} from "lucide-react";
 import { useState } from "react";
+
+const REPOSITORIES = [
+  {
+    label: "api-gateway",
+    description: "BFF e rotas públicas",
+    href: "https://github.com/ReimaoHenrique/de_role-api-gateway",
+  },
+  {
+    label: "events-service",
+    description: "Catálogo e reservas",
+    href: "https://github.com/ReimaoHenrique/de_role-events-service",
+  },
+  {
+    label: "tickets-service",
+    description: "Ingressos e check-in",
+    href: "https://github.com/ReimaoHenrique/de_role-tickets-service",
+  },
+  {
+    label: "admin-service",
+    description: "Autenticação e backoffice",
+    href: "https://github.com/ReimaoHenrique/de_role-admin-service",
+  },
+];
 
 export function Header() {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [reposOpen, setReposOpen] = useState(false);
   return (
     <header className="border-b bg-background shadow-sm">
       <div className="container mx-auto px-4 py-4">
@@ -41,6 +72,44 @@ export function Header() {
               <Settings className="h-4 w-4" />
               <span>Admin</span>
             </Link>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setReposOpen((open) => !open)}
+                aria-expanded={reposOpen}
+                aria-haspopup="menu"
+                className="flex items-center space-x-1 text-muted-foreground hover:text-blue-600 transition-colors"
+              >
+                <Github className="h-4 w-4" />
+                <span>Repositórios</span>
+                <ChevronDown
+                  className={`h-3 w-3 transition-transform ${reposOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+              {reposOpen && (
+                <div
+                  role="menu"
+                  className="absolute left-0 z-50 mt-2 w-60 rounded-md border bg-background p-1 shadow-lg"
+                >
+                  {REPOSITORIES.map((repo) => (
+                    <a
+                      key={repo.href}
+                      href={repo.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      role="menuitem"
+                      onClick={() => setReposOpen(false)}
+                      className="flex flex-col rounded-sm px-3 py-2 text-sm hover:bg-muted"
+                    >
+                      <span className="font-medium">{repo.label}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {repo.description}
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
           </nav>
 
           <div className="flex items-center space-x-2">
@@ -91,6 +160,25 @@ export function Header() {
               <Settings className="h-4 w-4" />
               <span>Admin</span>
             </Link>
+            <div className="flex flex-col gap-2 border-t pt-4">
+              <span className="flex items-center space-x-2 text-sm font-medium">
+                <Github className="h-4 w-4" />
+                <span>Repositórios</span>
+              </span>
+              {REPOSITORIES.map((repo) => (
+                <a
+                  key={repo.href}
+                  href={repo.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setDrawerOpen(false)}
+                  className="flex flex-col rounded-sm px-2 py-1 text-sm text-muted-foreground hover:bg-muted hover:text-blue-600 transition-colors"
+                >
+                  <span className="font-medium">{repo.label}</span>
+                  <span className="text-xs">{repo.description}</span>
+                </a>
+              ))}
+            </div>
           </div>
           <div className="flex-1" onClick={() => setDrawerOpen(false)} />
         </div>

@@ -59,30 +59,6 @@ export interface ApiExternaResponse {
   data: IngressoExterno[];
 }
 
-// Tipos para Mercado Pago
-export interface CompraIngressoRequest {
-  nome: string;
-  email: string;
-  cpf: string;
-  eventoId: string;
-}
-
-export interface MercadoPagoResponse {
-  id: string;
-  init_point: string;
-  sandbox_init_point: string;
-  client_id: string;
-  collector_id: number;
-  operation_type: string;
-  additional_info: string;
-  external_reference: string;
-  date_created: string;
-  payer: {
-    name: string;
-    email: string;
-  };
-}
-
 export interface Festa {
   id: string;
   nome: string;

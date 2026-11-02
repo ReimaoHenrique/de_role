@@ -1,188 +1,75 @@
-# TicketPlatform - Plataforma de Ingressos
+# Frontend — De Role
 
-Uma plataforma moderna e responsiva para venda e verificação de ingressos de eventos, desenvolvida com Next.js 15, TypeScript e Shadcn UI.
+Frontend Next.js 15 (App Router, TypeScript, Tailwind e Shadcn UI) da plataforma
+de eventos. Consome exclusivamente o **API Gateway** do monorepo.
 
-## 🚀 Tecnologias Utilizadas
+## Rodando localmente
 
-- **Next.js 15** - Framework React com App Router
-- **TypeScript** - Tipagem estática
-- **Tailwind CSS** - Framework CSS utilitário
-- **Shadcn UI** - Biblioteca de componentes
-- **Lucide React** - Ícones modernos
-- **next-themes** - Sistema de temas (modo claro/escuro)
+O backend precisa estar no ar (na raiz do monorepo):
 
-## 📋 Funcionalidades
-
-### 🏠 Página Home (/)
-- Exibição de informações do evento
-- Imagem do evento com overlay
-- Descrição detalhada do evento
-- Quantidade de ingressos disponíveis
-- Preço por ingresso
-- Barra de progresso de vendas
-- Termos de uso
-- Botão para compra (redirecionamento externo)
-- Link para verificação de ingresso
-
-### 🔍 Página Verificar (/verificar)
-- Formulário de consulta por CPF ou Nome
-- Validação e formatação automática de CPF
-- Exibição de resultados da consulta
-- Detalhes completos do ingresso encontrado
-- Mensagens de erro e sucesso
-- Interface responsiva
-
-### 👨‍💼 Página Admin (/admin)
-- Sistema de login protegido por hash
-- Dashboard com métricas resumidas
-- Cards de lucro atual e potencial
-- Estatísticas de ingressos vendidos
-- Tabela completa de festas cadastradas
-- Informações detalhadas de cada evento
-- Sistema de logout
-
-### 🌙 Sistema de Temas
-- **Alternância modo claro/escuro** - Botão toggle no header
-- **Persistência de preferência** - Tema salvo no localStorage
-- **Detecção automática** - Respeita preferência do sistema
-- **Transições suaves** - Mudanças animadas entre temas
-- **Compatibilidade total** - Todos os componentes adaptados
-
-## 🔧 Configuração e Instalação
-
-### Pré-requisitos
-- Node.js 18+ 
-- npm ou yarn
-
-### Instalação
 ```bash
-# Clone o repositório
-git clone <url-do-repositorio>
+npm run dev          # sobe events, tickets, admin e gateway
+```
 
-# Entre no diretório
-cd plataforma-ingressos
+Depois:
 
-# Instale as dependências
+```bash
+cd de_role
 npm install
-
-# Execute o projeto em desenvolvimento
-npm run dev
+API_GATEWAY_URL=http://localhost:4000 npm run dev
 ```
 
-O projeto estará disponível em `http://localhost:3000`
+Acesse `http://localhost:3000`.
 
-## 🔑 Credenciais de Acesso
+## Integração com o gateway
 
-### Admin
-- **Hash de acesso**: `d02f312c49a3e7b62daccf1f6e925b1872cf4e891ea13d26d4d52b86d1448579`
+As rotas em `src/app/api/*` rodam no servidor Next e fazem proxy para
+`API_GATEWAY_URL`:
 
-### Dados de Teste para Verificação
-- **CPF**: 123.456.789-00 (João Silva)
-- **CPF**: 987.654.321-00 (Maria Santos)
-- **CPF**: 456.789.123-00 (Pedro Oliveira)
-- **Nome**: João Silva, Maria Santos, Pedro Oliveira
+| Rota Next | Gateway | Descrição |
+| --- | --- | --- |
+| `GET /api/eventos` | `GET /api/eventos` | Lista de eventos |
+| `GET /api/eventos/[id]` | `GET /api/eventos/:id` | Detalhe do evento |
+| `POST /api/eventos` | `POST /api/eventos` | Cria convidado/ingresso |
+| `POST /api/verificar-convidado` | `POST /api/verificar-convidado` | Consulta por e-mail/CPF |
+| `POST /api/admin/festas` | `POST /api/admin/festas` | Login administrativo |
+| `GET /api/admin/festas` | `GET /api/admin/festas` | Dashboard (Bearer JWT) |
 
-## 📁 Estrutura do Projeto
+## Fluxo de inscrição
 
-```
-src/
-├── app/                    # App Router do Next.js
-│   ├── admin/             # Página de administração
-│   ├── verificar/         # Página de verificação
-│   ├── api/               # API Routes
-│   │   ├── admin/festas/  # Endpoint admin
-│   │   ├── ingresso/consultar/ # Endpoint consulta
-│   │   └── ingressos/disponiveis/ # Endpoint disponibilidade
-│   ├── globals.css        # Estilos globais
-│   ├── layout.tsx         # Layout principal
-│   └── page.tsx           # Página home
-├── components/            # Componentes reutilizáveis
-│   ├── ui/               # Componentes Shadcn UI
-│   ├── header.tsx        # Cabeçalho
-│   └── footer.tsx        # Rodapé
-├── lib/                  # Utilitários e configurações
-│   ├── constants.ts      # Constantes do projeto
-│   ├── mock-data.ts      # Dados mockados
-│   ├── utils.ts          # Utilitários Shadcn
-│   └── validations.ts    # Funções de validação
-└── types/                # Definições TypeScript
-    └── index.ts          # Interfaces e tipos
-```
+1. O usuário preenche nome, e-mail e CPF opcional.
+2. `TicketForm` envia `POST /api/eventos` com `eventoId`.
+3. O gateway cria o convidado no `tickets-service` e reserva a vaga no
+   `events-service`.
+4. A tela exibe o `ticketHash` retornado.
 
-## 🎨 Design e UX
+Não há redirecionamento para gateway de pagamento. O Mercado Pago foi removido
+do projeto.
 
-- **Design responsivo** - Funciona em desktop, tablet e mobile
-- **Tema consistente** - Paleta de cores neutra e profissional
-- **Componentes acessíveis** - Seguindo padrões de acessibilidade
-- **Feedback visual** - Loading states, mensagens de erro/sucesso
-- **Navegação intuitiva** - Menu claro e breadcrumbs
+## Admin
 
-## 🔌 APIs Implementadas
+O login envia o hash de acesso para `POST /api/admin/festas`. O token JWT
+retornado é salvo em `localStorage` (`admin_token`) e enviado como
+`Authorization: Bearer <token>` nas chamadas seguintes. O logout remove o token
+local.
 
-### GET /api/ingressos/disponiveis
-Retorna informações sobre ingressos disponíveis para o evento.
-
-### POST /api/ingresso/consultar
-Consulta ingresso por CPF ou nome.
-```json
-{
-  "cpf": "123.456.789-00",
-  "nome": "João Silva"
-}
-```
-
-### GET /api/admin/festas
-Lista todas as festas (requer autenticação).
-
-### POST /api/admin/festas
-Login administrativo.
-```json
-{
-  "hash": "d02f312c49a3e7b62daccf1f6e925b1872cf4e891ea13d26d4d52b86d1448579"
-}
-```
-
-## 🚀 Deploy
-
-O projeto está pronto para deploy no Vercel:
+## Scripts
 
 ```bash
-# Build de produção
-npm run build
-
-# Deploy no Vercel
-npx vercel
+npm run dev      # desenvolvimento (Turbopack)
+npm run build    # build de produção
+npm run start    # executa o build
+npm run lint     # lint
 ```
 
-## 📝 Scripts Disponíveis
+## Variáveis
 
-- `npm run dev` - Executa em modo desenvolvimento
-- `npm run build` - Gera build de produção
-- `npm run start` - Executa build de produção
-- `npm run lint` - Executa linting do código
+| Variável | Padrão | Descrição |
+| --- | --- | --- |
+| `API_GATEWAY_URL` | `http://localhost:4000` | URL do API Gateway |
 
-## 🔒 Segurança
+## Deploy
 
-- Hash de admin armazenado em constantes
-- Validação de entrada nos formulários
-- Sanitização de dados
-- Autenticação persistente via localStorage
-- Mascaramento de campos sensíveis
-
-## 🎯 Próximos Passos
-
-- Integração com gateway de pagamento real
-- Sistema de autenticação JWT
-- Banco de dados real (PostgreSQL/MongoDB)
-- Notificações por email/SMS
-- Sistema de relatórios avançados
-- Testes automatizados
-
-## 📄 Licença
-
-Este projeto foi desenvolvido como demonstração técnica.
-
----
-
-**Desenvolvido com ❤️ usando Next.js e Shadcn UI**
-
+O frontend pode ser hospedado na Vercel ou em outro serviço. Configure
+`API_GATEWAY_URL` com a URL pública do gateway. Como as rotas de API do Next
+rodam no servidor, o browser não precisa de CORS para falar com o backend.

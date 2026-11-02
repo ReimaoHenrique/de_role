@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { API_ENDPOINTS } from "@/lib/constants";
+
+const API_GATEWAY_URL = process.env.API_GATEWAY_URL ?? "http://localhost:4000";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Valida se pelo menos um campo foi fornecido
     if (!body.email && !body.cpf) {
       return NextResponse.json(
         {
@@ -16,22 +16,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Faz a requisição para a API externa
-    const response = await fetch(API_ENDPOINTS.VERIFICAR_CONVIDADO, {
+    const response = await fetch(`${API_GATEWAY_URL}/api/verificar-convidado`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      cache: "no-store",
     });
 
-    if (!response.ok) {
-      throw new Error(`Erro na API externa: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    return NextResponse.json(data);
+    const data = await response.json().catch(() => ({}));
+    return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error("Erro ao verificar convidado:", error);
     return NextResponse.json(
@@ -39,7 +32,7 @@ export async function POST(request: NextRequest) {
         sucesso: false,
         mensagem: "Erro ao conectar com o servidor. Tente novamente.",
       },
-      { status: 500 }
+      { status: 503 }
     );
   }
 }

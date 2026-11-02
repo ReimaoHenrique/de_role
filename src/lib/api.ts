@@ -1,7 +1,5 @@
 import { Evento } from "@/types";
 
-const API_BASE_URL = "https://koi-pretty-quietly.ngrok-free.app";
-
 export interface EventoAPI {
   id: string;
   nome: string;
@@ -70,13 +68,12 @@ export async function buscarEventos(): Promise<Evento[]> {
 
 export async function buscarEventoPorId(id: string): Promise<Evento | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/eventos/${id}`, {
+    const response = await fetch(`/api/eventos/${id}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      mode: "cors",
     });
 
     if (!response.ok) {

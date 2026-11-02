@@ -1,91 +1,59 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { festasMock } from '@/lib/mock-data';
-import { ADMIN_HASH, MESSAGES } from '@/lib/constants';
+import { NextRequest, NextResponse } from "next/server";
+
+const API_GATEWAY_URL = process.env.API_GATEWAY_URL ?? "http://localhost:4000";
 
 export async function GET(request: NextRequest) {
   try {
-    // Verifica autenticação via header
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
+    const authorization = request.headers.get("authorization");
 
-    if (!token || token !== ADMIN_HASH) {
+    if (!authorization) {
       return NextResponse.json(
-        { 
-          sucesso: false, 
-          mensagem: 'Acesso negado. Token inválido.' 
-        },
+        { sucesso: false, mensagem: "Acesso negado. Token inválido." },
         { status: 401 }
       );
     }
 
-    // Simula delay da API
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    return NextResponse.json({
-      sucesso: true,
-      data: festasMock,
-      resumo: {
-        totalFestas: festasMock.length,
-        festasAtivas: festasMock.filter(f => f.status === 'ativa').length,
-        festasFinalizadas: festasMock.filter(f => f.status === 'finalizada').length,
-        lucroTotal: festasMock.reduce((sum, festa) => sum + festa.lucroAtual, 0)
-      }
+    const response = await fetch(`${API_GATEWAY_URL}/api/admin/festas`, {
+      headers: { Authorization: authorization, Accept: "application/json" },
+      cache: "no-store",
     });
+
+    const data = await response.json().catch(() => ({}));
+    return NextResponse.json(data, { status: response.status });
   } catch (error) {
-    console.error('Erro ao buscar festas:', error);
+    console.error("Erro ao buscar festas:", error);
     return NextResponse.json(
-      { 
-        sucesso: false, 
-        mensagem: MESSAGES.ERRO_SERVIDOR 
-      },
-      { status: 500 }
+      { sucesso: false, mensagem: "Erro interno do servidor. Tente novamente." },
+      { status: 503 }
     );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // Verifica autenticação via header
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
-
-    if (!token || token !== ADMIN_HASH) {
-      return NextResponse.json(
-        { 
-          sucesso: false, 
-          mensagem: 'Acesso negado. Token inválido.' 
-        },
-        { status: 401 }
-      );
-    }
-
     const body = await request.json();
     const { hash } = body;
 
-    if (hash === ADMIN_HASH) {
-      return NextResponse.json({
-        sucesso: true,
-        mensagem: MESSAGES.LOGIN_SUCESSO,
-        token: ADMIN_HASH
-      });
-    } else {
+    if (!hash) {
       return NextResponse.json(
-        { 
-          sucesso: false, 
-          mensagem: MESSAGES.LOGIN_INVALIDO 
-        },
-        { status: 401 }
+        { sucesso: false, mensagem: "Hash de acesso obrigatório." },
+        { status: 400 }
       );
     }
+
+    const response = await fetch(`${API_GATEWAY_URL}/api/admin/festas`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hash }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    return NextResponse.json(data, { status: response.status });
   } catch (error) {
-    console.error('Erro no login admin:', error);
+    console.error("Erro no login admin:", error);
     return NextResponse.json(
-      { 
-        sucesso: false, 
-        mensagem: MESSAGES.ERRO_SERVIDOR 
-      },
-      { status: 500 }
+      { sucesso: false, mensagem: "Erro interno do servidor. Tente novamente." },
+      { status: 503 }
     );
   }
 }
-

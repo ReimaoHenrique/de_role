@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,9 +9,22 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Shield, LogOut, TrendingUp, Users, DollarSign, Calendar, Eye, EyeOff } from "lucide-react";
-import { festasMock } from "@/lib/mock-data";
-import { ADMIN_HASH, MESSAGES } from "@/lib/constants";
+import { MESSAGES } from "@/lib/constants";
 import { Festa } from "@/types";
+
+const TOKEN_STORAGE_KEY = "admin_token";
+
+interface AdminFestasResponse {
+  sucesso: boolean;
+  data?: Festa[];
+  mensagem?: string;
+  resumo?: {
+    totalFestas: number;
+    festasAtivas: number;
+    festasFinalizadas: number;
+    lucroTotal: number;
+  };
+}
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -21,46 +34,96 @@ export default function AdminPage() {
   const [festas, setFestas] = useState<Festa[]>([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    // Verifica se já está autenticado (localStorage)
-    const savedAuth = localStorage.getItem("admin_authenticated");
-    if (savedAuth === "true") {
-      setIsAuthenticated(true);
-      loadFestas();
-    }
-  }, []);
-
-  const loadFestas = async () => {
-    setLoading(true);
-    try {
-      // Simula delay da API
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setFestas(festasMock);
-    } catch (error) {
-      console.error("Erro ao carregar festas:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError("");
-
-    if (hashInput === ADMIN_HASH) {
-      setIsAuthenticated(true);
-      localStorage.setItem("admin_authenticated", "true");
-      loadFestas();
-    } else {
-      setLoginError(MESSAGES.LOGIN_INVALIDO);
-    }
-  };
-
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     setIsAuthenticated(false);
     setHashInput("");
     setLoginError("");
-    localStorage.removeItem("admin_authenticated");
+    setFestas([]);
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+  }, []);
+
+  const loadFestas = useCallback(
+    async (token: string) => {
+      setLoading(true);
+      try {
+        const response = await fetch("/api/admin/festas", {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+          cache: "no-store",
+        });
+
+        const result: AdminFestasResponse = await response
+          .json()
+          .catch(() => ({ sucesso: false }));
+
+        if (response.status === 401 || response.status === 403) {
+          handleLogout();
+          setLoginError(MESSAGES.LOGIN_INVALIDO);
+          return;
+        }
+
+        if (!response.ok || !result.sucesso) {
+          throw new Error(result.mensagem || "Erro ao carregar festas.");
+        }
+
+        setFestas(result.data ?? []);
+      } catch (error) {
+        console.error("Erro ao carregar festas:", error);
+        setLoginError(
+          error instanceof Error
+            ? error.message
+            : "Erro ao carregar festas. Tente novamente."
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [handleLogout]
+  );
+
+  useEffect(() => {
+    // Verifica se já existe um token salvo
+    const savedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (savedToken) {
+      // Restaura a sessão a partir do localStorage no mount
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setIsAuthenticated(true);
+      loadFestas(savedToken);
+    }
+  }, [loadFestas]);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError("");
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/admin/festas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hash: hashInput }),
+      });
+
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok || !result.sucesso || !result.token) {
+        throw new Error(result.mensagem || MESSAGES.LOGIN_INVALIDO);
+      }
+
+      localStorage.setItem(TOKEN_STORAGE_KEY, result.token);
+      setIsAuthenticated(true);
+      setHashInput("");
+      await loadFestas(result.token);
+    } catch (error) {
+      setLoginError(
+        error instanceof Error ? error.message : MESSAGES.LOGIN_INVALIDO
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatCurrency = (value: number) => {
@@ -155,8 +218,8 @@ export default function AdminPage() {
                   </Alert>
                 )}
 
-                <Button type="submit" className="w-full" disabled={!hashInput}>
-                  Entrar no Dashboard
+                <Button type="submit" className="w-full" disabled={!hashInput || loading}>
+                  {loading ? "Entrando..." : "Entrar no Dashboard"}
                 </Button>
               </form>
             </CardContent>
@@ -181,6 +244,14 @@ export default function AdminPage() {
           Sair
         </Button>
       </div>
+
+      {loginError && (
+        <Alert className="border-red-200 bg-red-50 mb-6">
+          <AlertDescription className="text-red-800">
+            {loginError}
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Cards de Resumo */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -255,6 +326,10 @@ export default function AdminPage() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
               <p className="text-gray-600 mt-2">Carregando dados...</p>
             </div>
+          ) : festas.length === 0 ? (
+            <p className="text-center text-gray-600 py-8">
+              Nenhuma festa cadastrada.
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -280,7 +355,10 @@ export default function AdminPage() {
                       <TableCell className="text-right">
                         <span className="font-medium">{festa.quantidadeVendidos}</span>
                         <span className="text-gray-500 text-sm ml-1">
-                          ({((festa.quantidadeVendidos / festa.quantidadeTotal) * 100).toFixed(0)}%)
+                          ({festa.quantidadeTotal > 0
+                            ? ((festa.quantidadeVendidos / festa.quantidadeTotal) * 100).toFixed(0)
+                            : 0}
+                          %)
                         </span>
                       </TableCell>
                       <TableCell className="text-right">{formatCurrency(festa.valorUnitario)}</TableCell>
@@ -301,4 +379,3 @@ export default function AdminPage() {
     </div>
   );
 }
-

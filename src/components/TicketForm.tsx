@@ -17,25 +17,31 @@ import {
 import { useForm } from "react-hook-form";
 import { Ticket, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { createPaymentPreference } from "@/lib/payment";
 
 interface TicketFormProps {
   accordionValue?: string;
   children?: React.ReactNode;
   preco?: number;
+  eventoId?: string;
+}
+
+interface GuestTicket {
+  id: string;
+  hash: string;
+  eventoId: string;
 }
 
 export function TicketForm({
   accordionValue = "ticket-form",
   children,
   preco,
+  eventoId,
 }: TicketFormProps) {
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [termsError, setTermsError] = useState("");
-  const [countdown, setCountdown] = useState<number | null>(null);
-  const [convidadoId, setConvidadoId] = useState<string | null>(null);
+  const [ticket, setTicket] = useState<GuestTicket | null>(null);
 
   const form = useForm({
     defaultValues: {
@@ -109,10 +115,11 @@ export function TicketForm({
 
     setTermsError("");
     setError(null);
+    setSuccess(false);
+    setTicket(null);
     setLoading(true);
 
     try {
-      // Primeiro, criar o convidado
       const response = await fetch("/api/eventos", {
         method: "POST",
         headers: {
@@ -121,77 +128,31 @@ export function TicketForm({
         body: JSON.stringify({
           nome: data.fullName,
           email: data.email,
-          ...(data.cpf && { cpf: data.cpf.replace(/\D/g, "") }), // Só envia CPF se preenchido
+          eventoId,
+          ...(data.cpf && { cpf: data.cpf.replace(/\D/g, "") }),
         }),
       });
 
-      const result = await response.json();
+      const result = await response.json().catch(() => ({}));
 
-      if (!response.ok) {
-        throw new Error(result.mensagem || "Erro ao processar compra");
+      if (!response.ok || !result.sucesso) {
+        throw new Error(result.mensagem || "Erro ao confirmar inscrição");
       }
 
-      if (result.sucesso) {
-        // Capturar o ID do convidado
-        const convidadoId = result.data?.id;
-        if (convidadoId) {
-          setConvidadoId(convidadoId);
-          console.log("ID do convidado criado:", convidadoId);
-        }
-
-        // Agora criar o link de pagamento
-        try {
-          console.log("Criando link de pagamento com ID:", convidadoId);
-          const paymentResult = await createPaymentPreference(
-            data.fullName,
-            data.email,
-            convidadoId
-          );
-          console.log("Link de pagamento criado:", paymentResult);
-
-          setSuccess(true);
-          form.reset();
-
-          // Iniciar contagem regressiva
-          setCountdown(3);
-          let linkOpened = false; // Flag para evitar abrir múltiplos links
-
-          const countdownInterval = setInterval(() => {
-            setCountdown((prev) => {
-              if (prev === null || prev <= 0) {
-                clearInterval(countdownInterval);
-
-                // Evitar abrir múltiplos links
-                if (!linkOpened) {
-                  linkOpened = true;
-
-                  // Log do link de pagamento
-                  console.log("Link de pagamento:", paymentResult.init_point);
-
-                  // Abrir Mercado Pago na mesma aba
-                  window.location.href = paymentResult.init_point;
-                }
-                return null;
-              }
-              return prev - 1;
-            });
-          }, 1000);
-
-          setTimeout(() => setSuccess(false), 5000);
-        } catch (paymentError) {
-          console.error("Erro ao criar link de pagamento:", paymentError);
-          const errorMessage =
-            paymentError instanceof Error
-              ? paymentError.message
-              : "Erro desconhecido";
-          setError(`Erro ao gerar link de pagamento: ${errorMessage}`);
-        }
-      } else {
-        setError(result.mensagem || "Erro ao processar compra");
-      }
+      setTicket({
+        id: result.data.id,
+        hash: result.data.hash ?? result.data.ticketHash,
+        eventoId: result.data.eventoId,
+      });
+      setSuccess(true);
+      form.reset();
     } catch (err) {
-      console.error("Erro na compra:", err);
-      setError("Erro ao processar compra. Tente novamente.");
+      console.error("Erro na inscrição:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Erro ao confirmar inscrição. Tente novamente."
+      );
     } finally {
       setLoading(false);
     }
@@ -202,7 +163,7 @@ export function TicketForm({
       <AccordionTrigger className="bg-card text-card-foreground border rounded-lg px-4 py-3 text-base font-medium shadow-sm">
         <span className="flex items-center gap-2">
           <Ticket className="w-5 h-5" />
-          Compre seu Ingresso
+          Garanta seu Ingresso
           {preco && (
             <span className="text-sm text-muted-foreground">
               - R$ {preco.toFixed(2)}
@@ -326,35 +287,23 @@ export function TicketForm({
               {loading ? (
                 <div className="flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Processando...
+                  Confirmando...
                 </div>
               ) : (
-                "Comprar Ingresso"
+                "Confirmar Inscrição"
               )}
             </Button>
-            {success && (
+            {success && ticket && (
               <Alert>
                 <AlertDescription className="text-green-600">
-                  {countdown !== null ? (
-                    <>
-                      Compra realizada com sucesso!
-                      {convidadoId && (
-                        <span className="block text-sm mt-1">
-                          ID do convidado:{" "}
-                          <span className="font-mono bg-gray-100 px-2 py-1 rounded">
-                            {convidadoId}
-                          </span>
-                        </span>
-                      )}
-                      O link de pagamento será aberto em uma nova aba em{" "}
-                      <span className="font-bold text-blue-600">
-                        {countdown}
-                      </span>{" "}
-                      segundos...
-                    </>
-                  ) : (
-                    "Compra realizada com sucesso! Redirecionando..."
-                  )}
+                  Inscrição confirmada com sucesso! Guarde o código do seu
+                  ingresso:
+                  <span className="block text-sm mt-2">
+                    Código:{" "}
+                    <span className="font-mono bg-gray-100 px-2 py-1 rounded break-all">
+                      {ticket.hash}
+                    </span>
+                  </span>
                 </AlertDescription>
               </Alert>
             )}
