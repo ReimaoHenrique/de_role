@@ -10,15 +10,22 @@ import { Download, Share, X } from "lucide-react";
 // e atualizar o caminho abaixo.
 const INSTALL_IMAGE_SRC = "/events/boreal.jpg";
 
-const COUNTDOWN_MS = 3000;
+const COUNTDOWN_MS = 7000;
 const RING_RADIUS = 16;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
+/**
+ * Bottom sheet de instalação PWA.
+ *
+ * ⚠️ No Safari (iOS): não funciona, pois o Safari não dispara o evento `beforeinstallprompt`.
+ * ⚠️ No desktop: não aparece, pois só funciona em dispositivos móveis.
+ */
 
 export function PwaInstallSheet() {
   const { canShow, installEvent, isIOS, install, dismiss } = usePwaInstall();
   const [remaining, setRemaining] = useState(COUNTDOWN_MS);
 
-  // Abre na hora e fecha sozinho depois de 3s (cronômetro)
+  // Abre na hora e fecha sozinho depois de 7s
   useEffect(() => {
     if (!canShow) return;
 
@@ -112,7 +119,7 @@ export function PwaInstallSheet() {
               {installEvent
                 ? "Adicione à tela inicial para abrir mais rápido e usar offline."
                 : isIOS
-                  ? "Toque em Compartilhar e depois em \u201cAdicionar à Tela de Início\u201d."
+                  ? "No Safari (iOS), o app não pode ser instalado. Use o Chrome ou o navegador padrão."
                   : "No Chrome, toque no menu \u22ee e escolha \u201cInstalar app\u201d."}
             </p>
           </div>
