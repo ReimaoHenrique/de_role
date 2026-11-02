@@ -5,7 +5,7 @@ import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { ThemeProvider } from "@/components/theme-provider";
 import { PwaRegister } from "@/components/pwa-register";
-import { PwaInstallBanner } from "@/components/pwa-install-banner";
+import { PwaInstallSheet } from "@/components/pwa-install-sheet";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -59,7 +59,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <PwaRegister />
-          <PwaInstallBanner />
+          <PwaInstallSheet />
           <Header />
           <main className="flex-1">
             {children}
