@@ -26,16 +26,14 @@ export function useAdminAuth(): UseAdminAuthReturn {
 
   const fetchWithAuth = useCallback(
     async (input: RequestInfo, init: RequestInit = {}) => {
-      const authHeaders = token
-        ? { Authorization: `Bearer ${token}` }
-        : {};
+      const headers = new Headers(init.headers);
+      headers.set("Content-Type", "application/json");
+      if (token) {
+        headers.set("Authorization", `Bearer ${token}`);
+      }
       const response = await fetch(input, {
         ...init,
-        headers: {
-          ...(init.headers || {}),
-          ...authHeaders,
-          "Content-Type": "application/json",
-        },
+        headers,
       });
       if (response.status === 401 || response.status === 403) {
         logout();
