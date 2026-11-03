@@ -1,8 +1,9 @@
 allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
   '@tailwindcss/oxide': true
+  esbuild: true
+  prisma: true
   sharp: true
   unrs-resolver: true
-minimumReleaseAgeExclude:
-  - '@next/eslint-plugin-next@16.4.4'
-  - eslint-config-next@16.4.4
-  - next@16.4.4
+minimumReleaseAge: 0
