@@ -23,8 +23,13 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
-    title: "TicketPlatform",
+    statusBarStyle: "black-translucent",
+    title: "Ingressos",
+  },
+  other: {
+    // Necessário para o modo standalone no Safari do iOS/iPadOS.
+    // O Next.js 16 só gera "mobile-web-app-capable", que o Safari ignora.
+    "apple-mobile-web-app-capable": "yes",
   },
   icons: {
     icon: [
@@ -39,7 +44,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#0a0a0a",
+  themeColor: "#735eec",
 };
 
 export default function RootLayout({

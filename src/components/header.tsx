@@ -10,8 +10,11 @@ import {
   Settings,
   Github,
   ChevronDown,
+  Download,
 } from "lucide-react";
 import { useState } from "react";
+import Image from "next/image";
+import { usePwaInstall } from "@/lib/hooks/usePwaInstall";
 
 const REPOSITORIES = [
   {
@@ -39,12 +42,26 @@ const REPOSITORIES = [
 export function Header() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [reposOpen, setReposOpen] = useState(false);
+  const { isInstalled, isIOS, installEvent, open } = usePwaInstall();
+  const showInstallButton = !isInstalled && (Boolean(installEvent) || isIOS);
   return (
     <header className="border-b bg-background shadow-sm">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center space-x-2">
-            <Ticket className="h-8 w-8 text-blue-600" />
+            {isInstalled ? (
+              // Logo do PWA quando o app está instalado na Tela de Início
+              <Image
+                src="/icon-192.png"
+                alt="Ingressos"
+                width={32}
+                height={32}
+                className="h-8 w-8 rounded-lg object-cover"
+                priority
+              />
+            ) : (
+              <Ticket className="h-8 w-8 text-blue-600" />
+            )}
             <span className="text-2xl font-bold text-foreground">
               TicketPlatform
             </span>
@@ -114,6 +131,17 @@ export function Header() {
 
           <div className="flex items-center space-x-2">
             <ThemeToggle />
+            {showInstallButton && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="hidden sm:inline-flex"
+                onClick={open}
+              >
+                <Download className="h-4 w-4" />
+                Instalar app
+              </Button>
+            )}
             <div className="md:hidden">
               <Button
                 variant="outline"

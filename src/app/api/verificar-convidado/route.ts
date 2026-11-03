@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import { normalizeCpf } from "@/lib/server-utils";
 
-const API_GATEWAY_URL = process.env.API_GATEWAY_URL ?? "http://localhost:4000";
+export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
+    const email = body.email ? body.email.trim().toLowerCase() : null;
+    const cpf = body.cpf ? normalizeCpf(body.cpf) : null;
 
-    if (!body.email && !body.cpf) {
+    if (!email && !cpf) {
       return NextResponse.json(
         {
           sucesso: false,
@@ -16,23 +20,54 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const response = await fetch(`${API_GATEWAY_URL}/api/verificar-convidado`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      cache: "no-store",
+    const guest = await prisma.guest.findFirst({
+      where: {
+        OR: [
+          ...(email ? [{ email }] : []),
+          ...(cpf ? [{ cpf }] : []),
+        ],
+      },
+      include: {
+        event: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
     });
 
-    const data = await response.json().catch(() => ({}));
-    return NextResponse.json(data, { status: response.status });
+    if (!guest) {
+      return NextResponse.json({
+        sucesso: false,
+        mensagem: "Convidado não encontrado.",
+      });
+    }
+
+    const statusMap: Record<string, string> = {
+      ACTIVE: "confirmado",
+      USED: "utilizado",
+      CANCELLED: "cancelado",
+    };
+
+    return NextResponse.json({
+      sucesso: true,
+      mensagem: "Convidado encontrado.",
+      data: {
+        status: statusMap[guest.status] || "confirmado",
+        evento: {
+          nome: guest.event.name,
+          data: guest.event.startsAt.toISOString(),
+          local: guest.event.venue,
+        },
+      },
+    });
   } catch (error) {
     console.error("Erro ao verificar convidado:", error);
     return NextResponse.json(
       {
         sucesso: false,
-        mensagem: "Erro ao conectar com o servidor. Tente novamente.",
+        mensagem: "Erro ao consultar banco de dados. Tente novamente.",
       },
-      { status: 503 }
+      { status: 500 }
     );
   }
 }

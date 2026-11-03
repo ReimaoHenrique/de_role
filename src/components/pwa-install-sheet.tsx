@@ -4,25 +4,62 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { usePwaInstall } from "@/lib/hooks/usePwaInstall";
-import { Download, Share, X } from "lucide-react";
+import {
+  Download,
+  Share,
+  SquareArrowUp,
+  Plus,
+  X,
+  Check,
+} from "lucide-react";
 
-// Troque por qualquer imagem sua. Basta colocar o arquivo em /public
-// e atualizar o caminho abaixo.
+// Imagem de destaque do evento (usada como "capa" do app).
 const INSTALL_IMAGE_SRC = "/events/boreal.jpg";
+
+// Logo do PWA (ícone exibido na Tela de Início depois de instalado).
+const APP_LOGO_SRC = "/icon-192.png";
 
 const COUNTDOWN_MS = 7000;
 const RING_RADIUS = 16;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 /**
+ * Instruções visuais do fluxo de instalação no iOS.
+ */
+function IosInstallSteps() {
+  return (
+    <ol className="space-y-1.5 text-sm text-muted-foreground">
+      <li className="flex items-center gap-2">
+        <SquareArrowUp className="h-4 w-4 shrink-0 text-blue-600" />
+        Toque no botão Compartilhar
+      </li>
+      <li className="flex items-center gap-2">
+        <Plus className="h-4 w-4 shrink-0 text-blue-600" />
+        Escolha “Adicionar à Tela de Início”
+      </li>
+    </ol>
+  );
+}
+
+/**
  * Bottom sheet de instalação PWA.
  *
- * ⚠️ No Safari (iOS): não funciona, pois o Safari não dispara o evento `beforeinstallprompt`.
- * ⚠️ No desktop: não aparece, pois só funciona em dispositivos móveis.
+ * - Chrome/Android: usa o prompt nativo (`beforeinstallprompt`).
+ * - Safari/iOS: não existe prompt nativo, então mostramos o passo a passo de
+ *   "Compartilhar → Adicionar à Tela de Início".
+ * - Desktop: não aparece.
  */
-
 export function PwaInstallSheet() {
-  const { canShow, installEvent, isIOS, install, dismiss } = usePwaInstall();
+  const {
+    canShow,
+    installEvent,
+    isIOS,
+    canShare,
+    shared,
+    install,
+    shareInstall,
+    dismiss,
+  } = usePwaInstall();
   const [remaining, setRemaining] = useState(COUNTDOWN_MS);
 
   // Abre na hora e fecha sozinho depois de 7s
@@ -63,7 +100,7 @@ export function PwaInstallSheet() {
       />
 
       {/* Bottom sheet ~30% da tela, glassmorphism sutil */}
-      <div className="absolute inset-x-0 bottom-0 flex h-[30dvh] min-h-[230px] flex-col justify-between rounded-t-3xl border-t border-white/40 bg-white/70 px-5 pt-5 pb-8 shadow-[0_-12px_40px_-12px_rgba(0,0,0,0.25)] backdrop-blur-2xl animate-in slide-in-from-bottom-full duration-300 ease-out dark:border-white/10 dark:bg-zinc-900/70">
+      <div className="absolute inset-x-0 bottom-0 flex max-h-[85dvh] min-h-[230px] flex-col justify-between gap-3 rounded-t-3xl border-t border-white/40 bg-white/70 px-5 pt-5 pb-8 shadow-[0_-12px_40px_-12px_rgba(0,0,0,0.25)] backdrop-blur-2xl animate-in slide-in-from-bottom-full duration-300 ease-out dark:border-white/10 dark:bg-zinc-900/70 sm:h-[30dvh]">
         {/* X com cronômetro circular */}
         <button
           type="button"
@@ -101,15 +138,26 @@ export function PwaInstallSheet() {
           <X className="h-4 w-4" />
         </button>
 
-        {/* Conteúdo: imagem + texto */}
+        {/* Conteúdo: logo do PWA + imagem do app + texto */}
         <div className="flex items-center gap-4 pr-10">
-          <Image
-            src={INSTALL_IMAGE_SRC}
-            alt="Prévia do app"
-            width={64}
-            height={64}
-            className="h-16 w-16 shrink-0 rounded-2xl object-cover ring-1 ring-black/5 dark:ring-white/10"
-          />
+          <div className="relative shrink-0">
+            {/* Logo do PWA que vai aparecer na Tela de Início */}
+            <Image
+              src={APP_LOGO_SRC}
+              alt="Logo do Ingressos"
+              width={64}
+              height={64}
+              className="h-16 w-16 rounded-2xl object-cover shadow-sm ring-1 ring-black/5 dark:ring-white/10"
+            />
+            {/* Imagem do app, levemente sobreposta à logo */}
+            <Image
+              src={INSTALL_IMAGE_SRC}
+              alt="Prévia do app"
+              width={40}
+              height={40}
+              className="absolute -bottom-2 -right-2 h-10 w-10 rounded-xl object-cover shadow-md ring-2 ring-white dark:ring-zinc-900"
+            />
+          </div>
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <Download className="h-4 w-4 text-blue-600" />
@@ -119,24 +167,50 @@ export function PwaInstallSheet() {
               {installEvent
                 ? "Adicione à tela inicial para abrir mais rápido e usar offline."
                 : isIOS
-                  ? "No Safari (iOS), o app não pode ser instalado. Use o Chrome ou o navegador padrão."
-                  : "No Chrome, toque no menu \u22ee e escolha \u201cInstalar app\u201d."}
+                  ? "Toque no botão Compartilhar e depois em “Adicionar à Tela de Início”."
+                  : "No Chrome, toque no menu ⋮ e escolha “Instalar app”."}
             </p>
           </div>
         </div>
+
+        {/* Passos visuais do fluxo de instalação no iOS */}
+        {isIOS && !installEvent && !shared && <IosInstallSteps />}
 
         <div className="flex items-center gap-3">
           {installEvent ? (
             <Button className="flex-1" onClick={install}>
               Instalar agora
             </Button>
-          ) : (
+          ) : isIOS ? (
             <>
-              {isIOS && <Share className="h-5 w-5 text-muted-foreground" />}
-              <Button className="flex-1" variant="outline" onClick={dismiss}>
-                Entendi
-              </Button>
+              {shared ? (
+                <div className="flex flex-1 items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <Check className="h-4 w-4 text-emerald-500" />
+                  <span>Abra o menu Compartilhar e toque em “Adicionar à Tela de Início”.</span>
+                </div>
+              ) : (
+                <>
+                  {canShare && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      aria-label="Compartilhar"
+                      title="Compartilhar"
+                      onClick={shareInstall}
+                    >
+                      <Share className="h-5 w-5" />
+                    </Button>
+                  )}
+                  <Button className="flex-1" onClick={dismiss}>
+                    Entendi
+                  </Button>
+                </>
+              )}
             </>
+          ) : (
+            <Button className="flex-1" variant="outline" onClick={dismiss}>
+              Entendi
+            </Button>
           )}
         </div>
       </div>
