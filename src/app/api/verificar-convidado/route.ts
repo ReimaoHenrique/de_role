@@ -9,12 +9,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const email = body.email ? body.email.trim().toLowerCase() : null;
     const cpf = body.cpf ? normalizeCpf(body.cpf) : null;
+    const hash = body.hash?.trim() || body.ticketHash?.trim() || null;
 
-    if (!email && !cpf) {
+    if (!email && !cpf && !hash) {
       return NextResponse.json(
         {
           sucesso: false,
-          mensagem: "Por favor, forneça pelo menos um campo (email ou CPF).",
+          mensagem: "Por favor, forneça o código do ingresso, e-mail ou CPF para consulta.",
         },
         { status: 400 }
       );
@@ -23,6 +24,7 @@ export async function POST(request: NextRequest) {
     const guest = await prisma.guest.findFirst({
       where: {
         OR: [
+          ...(hash ? [{ ticketHash: hash }] : []),
           ...(email ? [{ email }] : []),
           ...(cpf ? [{ cpf }] : []),
         ],
@@ -38,7 +40,7 @@ export async function POST(request: NextRequest) {
     if (!guest) {
       return NextResponse.json({
         sucesso: false,
-        mensagem: "Convidado não encontrado.",
+        mensagem: "Nenhum ingresso ou convidado foi encontrado com esses dados.",
       });
     }
 
@@ -50,9 +52,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       sucesso: true,
-      mensagem: "Convidado encontrado.",
+      mensagem: "Ingresso verificado com sucesso.",
       data: {
+        id: guest.id,
+        nome: guest.name,
+        email: guest.email,
+        ticketHash: guest.ticketHash,
         status: statusMap[guest.status] || "confirmado",
+        checkedInAt: guest.checkedInAt ? guest.checkedInAt.toISOString() : null,
         evento: {
           nome: guest.event.name,
           data: guest.event.startsAt.toISOString(),

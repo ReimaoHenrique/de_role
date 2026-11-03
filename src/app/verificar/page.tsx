@@ -19,10 +19,11 @@ import { VerificarConvidadoRequest, VerificarConvidadoResponse } from "@/types";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 export default function VerificarPage() {
-  const [tipoBusca, setTipoBusca] = useState<"cpf" | "email">("email");
+  const [tipoBusca, setTipoBusca] = useState<"cpf" | "email" | "hash">("email");
   const [formData, setFormData] = useState<VerificarConvidadoRequest>({
     cpf: "",
     email: "",
+    hash: "",
   });
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState<VerificarConvidadoResponse | null>(
