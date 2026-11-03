@@ -4,7 +4,6 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
-  Ticket,
   Home,
   Search,
   Settings,
@@ -49,19 +48,15 @@ export function Header() {
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center space-x-2">
-            {isInstalled ? (
-              // Logo do PWA quando o app está instalado na Tela de Início
-              <Image
-                src="/icon-192.png"
-                alt="Ingressos"
-                width={32}
-                height={32}
-                className="h-8 w-8 rounded-lg object-cover"
-                priority
-              />
-            ) : (
-              <Ticket className="h-8 w-8 text-blue-600" />
-            )}
+            {/* Logo do app no menu de navegação */}
+            <Image
+              src="/logo.png"
+              alt="Ingressos"
+              width={32}
+              height={36}
+              className="h-9 w-8 rounded-lg object-contain"
+              priority
+            />
             <span className="text-2xl font-bold text-foreground">
               TicketPlatform
             </span>

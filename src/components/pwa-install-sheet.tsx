@@ -17,7 +17,7 @@ import {
 const INSTALL_IMAGE_SRC = "/events/boreal.jpg";
 
 // Logo do PWA (ícone exibido na Tela de Início depois de instalado).
-const APP_LOGO_SRC = "/icon-192.png";
+const APP_LOGO_SRC = "/logo.png";
 
 const COUNTDOWN_MS = 7000;
 const RING_RADIUS = 16;

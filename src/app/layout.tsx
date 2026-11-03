@@ -38,6 +38,29 @@ export const metadata: Metadata = {
     ],
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
+  openGraph: {
+    type: "website",
+    locale: "pt_BR",
+    siteName: "TicketPlatform",
+    title: "TicketPlatform - Plataforma de Ingressos",
+    description:
+      "Sua plataforma de confiança para compra e verificação de ingressos para eventos.",
+    images: [
+      {
+        url: "/logo.png",
+        width: 471,
+        height: 530,
+        alt: "TicketPlatform",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "TicketPlatform - Plataforma de Ingressos",
+    description:
+      "Sua plataforma de confiança para compra e verificação de ingressos para eventos.",
+    images: ["/logo.png"],
+  },
 };
 
 export const viewport: Viewport = {

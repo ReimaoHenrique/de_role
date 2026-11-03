@@ -1,8 +1,14 @@
-const CACHE_NAME = "plataforma-ingressos-v2";
+const CACHE_NAME = "plataforma-ingressos-v4";
 
 // Apenas o shell mínimo é pré-cacheado. Páginas/API NÃO entram no cache
 // para evitar servir conteúdo velho (ou dados quebrados) no iOS.
-const APP_SHELL = ["/", "/manifest.json", "/icon-192.png", "/icon-512.png"];
+const APP_SHELL = [
+  "/",
+  "/manifest.json",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/apple-touch-icon.png",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
