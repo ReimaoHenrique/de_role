@@ -99,3 +99,6 @@ npm run lint     # lint
 Configure `API_GATEWAY_URL` no ambiente do deploy (Vercel ou outro). As rotas de
 API do Next rodam no servidor, então o browser não precisa de CORS para falar
 com o backend.
+
+O projeto na Vercel está conectado ao repositório GitHub `ReimaoHenrique/de_role`.
+Todo push na branch `main` dispara um deploy de produção automático.
