@@ -1,57 +1,89 @@
 # Frontend — De Role
 
-Frontend Next.js 15 (App Router, TypeScript, Tailwind e Shadcn UI) da plataforma
-de eventos. Consome exclusivamente o **API Gateway** do monorepo.
+Frontend Next.js (App Router, TypeScript, Tailwind e Shadcn UI) da plataforma de
+eventos. Consome **exclusivamente o API Gateway**; não acessa banco nem serviços
+internos.
 
 ## Rodando localmente
 
-O backend precisa estar no ar (na raiz do monorepo):
+1. Copie `.env.example` para `.env.local` e ajuste a URL do gateway:
 
 ```bash
-npm run dev          # sobe events, tickets, admin e gateway
+cp .env.example .env.local
 ```
 
-Depois:
+Para desenvolvimento local do monorepo:
 
 ```bash
-cd de_role
-npm install
 API_GATEWAY_URL=http://localhost:4000 npm run dev
 ```
 
 Acesse `http://localhost:3000`.
 
-## Integração com o gateway
+## Variáveis de ambiente
 
-As rotas em `src/app/api/*` rodam no servidor Next e fazem proxy para
-`API_GATEWAY_URL`:
+| Variável | Onde usar | Descrição |
+| --- | --- | --- |
+| `API_GATEWAY_URL` | servidor | URL do gateway usada pelas route handlers e server components |
+| `NEXT_PUBLIC_API_GATEWAY_URL` | opcional/browser | Só se alguma chamada precisar sair do browser. O padrão é same-origin |
+
+Nunca coloque `INTERNAL_API_KEY`, `DATABASE_URL`, `JWT_SECRET` ou
+`ADMIN_ACCESS_HASH` neste projeto. O frontend não fala com o banco e não conhece
+segredos de backend.
+
+## Arquitetura
+
+O browser chama apenas rotas do próprio Next.js (`/api/*`). Essas rotas são um
+proxy fino para o gateway:
+
+```
+browser -> Next.js route handler -> API Gateway -> serviços internos
+```
+
+- O JWT administrativo fica em cookie `httpOnly`, `secure` (em produção),
+  `sameSite=lax`. Nada é salvo em `localStorage`/`sessionStorage`.
+- O login recebe a senha no browser, calcula SHA-256 e envia somente o hash.
+- Erros usam o envelope canônico `{ success: false, error: { code, message } }`.
+- `401` limpa o cookie e devolve o usuário para o login.
+
+### Rotas públicas
 
 | Rota Next | Gateway | Descrição |
 | --- | --- | --- |
-| `GET /api/eventos` | `GET /api/eventos` | Lista de eventos |
-| `GET /api/eventos/[id]` | `GET /api/eventos/:id` | Detalhe do evento |
-| `POST /api/eventos` | `POST /api/eventos` | Cria convidado/ingresso |
-| `POST /api/verificar-convidado` | `POST /api/verificar-convidado` | Consulta por e-mail/CPF |
-| `POST /api/admin/festas` | `POST /api/admin/festas` | Login administrativo |
-| `GET /api/admin/festas` | `GET /api/admin/festas` | Dashboard (Bearer JWT) |
+| `GET /api/events` | `GET /api/events` | Lista paginada de eventos |
+| `GET /api/events/[idOrSlug]` | `GET /api/events/:idOrSlug` | Detalhe por UUID ou slug |
+| `POST /api/guests` | `POST /api/guests` | Cria convidado/ingresso |
+| `POST /api/guests/lookup` | `POST /api/guests/lookup` | Consulta por e-mail, CPF ou nome |
 
-## Fluxo de inscrição
+### Rotas administrativas
 
-1. O usuário preenche nome, e-mail e CPF opcional.
-2. `TicketForm` envia `POST /api/eventos` com `eventoId`.
-3. O gateway cria o convidado no `tickets-service` e reserva a vaga no
-   `events-service`.
-4. A tela exibe o `ticketHash` retornado.
+| Rota Next | Gateway | Descrição |
+| --- | --- | --- |
+| `POST /api/admin/login` | `POST /api/admin/login` | Define o cookie httpOnly |
+| `POST /api/admin/logout` | `POST /api/admin/logout` | Revoga a sessão e limpa o cookie |
+| `GET /api/admin/me` | `GET /api/admin/me` | Valida a sessão |
+| `GET /api/admin/dashboard` | `GET /api/admin/dashboard` | Totais e eventos |
+| `GET/POST /api/admin/events` | `GET/POST /api/admin/events` | Lista/cria eventos |
+| `PATCH/DELETE /api/admin/events/[id]` | `PATCH/DELETE /api/admin/events/:id` | Atualiza/cancela evento |
+| `GET /api/admin/guests` | `GET /api/admin/guests` | Lista convidados |
+| `GET /api/admin/guests/stats` | `GET /api/admin/guests/stats` | Estatísticas |
+| `POST /api/admin/guests/[id]/check-in` | idem | Check-in |
+| `POST /api/admin/guests/[id]/cancel` | idem | Cancelamento |
 
-Não há redirecionamento para gateway de pagamento. O Mercado Pago foi removido
-do projeto.
+## Telas
 
-## Admin
+- `/` — listagem de eventos ativos, busca e paginação.
+- `/eventos/[slug]` — detalhe do evento, termos, disponibilidade e inscrição.
+- `/verificar` — consulta de ingresso por e-mail, CPF ou nome.
+- `/admin` — login, dashboard, CRUD de eventos, convidados e check-in.
 
-O login envia o hash de acesso para `POST /api/admin/festas`. O token JWT
-retornado é salvo em `localStorage` (`admin_token`) e enviado como
-`Authorization: Bearer <token>` nas chamadas seguintes. O logout remove o token
-local.
+## Formatação
+
+- Dinheiro: `Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })`
+  a partir de `priceInCents`.
+- Datas: ISO UTC formatadas em `America/Sao_Paulo`.
+- CPF: a API devolve mascarado; o frontend nunca tenta desmascarar.
+- `imageUrl` é um caminho relativo dentro de `public/`; `null` usa placeholder.
 
 ## Scripts
 
@@ -62,14 +94,8 @@ npm run start    # executa o build
 npm run lint     # lint
 ```
 
-## Variáveis
-
-| Variável | Padrão | Descrição |
-| --- | --- | --- |
-| `API_GATEWAY_URL` | `http://localhost:4000` | URL do API Gateway |
-
 ## Deploy
 
-O frontend pode ser hospedado na Vercel ou em outro serviço. Configure
-`API_GATEWAY_URL` com a URL pública do gateway. Como as rotas de API do Next
-rodam no servidor, o browser não precisa de CORS para falar com o backend.
+Configure `API_GATEWAY_URL` no ambiente do deploy (Vercel ou outro). As rotas de
+API do Next rodam no servidor, então o browser não precisa de CORS para falar
+com o backend.

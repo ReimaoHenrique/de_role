@@ -46,10 +46,14 @@ export function validarEmail(email: string): boolean {
   return regex.test(email);
 }
 
-// Formatação de CPF
+// Formatação progressiva de CPF (funciona também durante a digitação)
 export function formatarCPF(cpf: string): string {
-  const cpfLimpo = cpf.replace(/\D/g, '');
-  return cpfLimpo.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  const digits = cpf.replace(/\D/g, '').slice(0, 11);
+
+  return digits
+    .replace(/^(\d{3})(\d)/, '$1.$2')
+    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1-$2');
 }
 
 // Formatação de telefone

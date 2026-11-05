@@ -1,219 +1,174 @@
-// Tipos compartilhados entre frontend e backend
+// Contratos canônicos expostos pelo API Gateway.
 
-// ---------------------------------------------------------------------------
-// Eventos / ingressos
-// ---------------------------------------------------------------------------
+export type EventStatus =
+  | "DRAFT"
+  | "ACTIVE"
+  | "SOLD_OUT"
+  | "FINISHED"
+  | "CANCELLED";
 
-export interface Evento {
+export type GuestStatus = "ACTIVE" | "USED" | "CANCELLED";
+
+export interface Event {
   id: string;
-  nome: string;
-  descricao: string;
-  imagem: string;
-  data: string;
-  local: string;
-  preco: number;
-  ingressosDisponiveis: number;
-  ingressosTotal: number;
-  termosUsoTitle: string;
-}
-
-export interface Ingresso {
-  id: string;
-  eventoId: string;
-  cpf: string;
-  nome: string;
-  email: string;
-  hash: string;
-  dataCompra: string;
-  status: "ativo" | "usado" | "cancelado";
-}
-
-// Tipo para a estrutura real da API externa
-export interface IngressoExterno {
-  id: string;
-  eventoId: string;
-  nomeEvento: string;
-  cpf: string | null;
-  nome: string;
-  email: string;
-  hash: string;
-  dataCompra: string;
-  status: "ativo" | "usado" | "cancelado";
+  slug: string;
+  name: string;
+  description: string;
+  imageUrl: string | null;
+  startsAt: string;
+  venue: string;
+  priceInCents: number;
+  price: number;
+  totalTickets: number;
+  issuedTickets: number;
+  availableTickets: number;
+  status: EventStatus;
+  termsOfUse: string;
   createdAt: string;
   updatedAt: string;
-  evento: {
-    id: string;
-    nome: string;
-    descricao: string;
-    imagem: string | null;
-    data: string;
-    local: string;
-    preco: number;
-    ingressosDisponiveis: number;
-    ingressosTotal: number;
-    linkPagamento: string;
-    termosUso: string;
-    status: string;
-    createdAt: string;
-    updatedAt: string;
+}
+
+export interface GuestEventSummary {
+  id: string;
+  name: string;
+  startsAt: string;
+  venue: string;
+}
+
+export interface Guest {
+  id: string;
+  eventId: string;
+  event: GuestEventSummary;
+  name: string;
+  email: string;
+  /** Sempre mascarado pela API, por exemplo: "***.567.890-**". */
+  cpf: string | null;
+  /** Credencial do ingresso. Não deve ser exibida em páginas públicas de consulta. */
+  ticketHash: string;
+  status: GuestStatus;
+  checkedInAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
+export interface ApiMeta {
+  pagination?: Pagination;
+}
+
+export interface ApiSuccess<T> {
+  success: true;
+  data: T;
+  meta?: ApiMeta;
+}
+
+export interface ApiErrorBody {
+  success: false;
+  error: {
+    code: string;
+    message: string;
+    details?: unknown;
   };
 }
 
-// Tipo para a resposta da API externa
-export interface ApiExternaResponse {
-  sucesso: boolean;
-  data: IngressoExterno[];
+export type ApiEnvelope<T> = ApiSuccess<T> | ApiErrorBody;
+
+export interface Paginated<T> {
+  data: T[];
+  pagination: Pagination | null;
 }
 
 // ---------------------------------------------------------------------------
-// Festa (formato legado usado no dashboard administrativo)
+// Admin
 // ---------------------------------------------------------------------------
 
-export interface Festa {
-  id: string;
-  nome: string;
-  quantidadeTotal: number;
-  quantidadeVendidos: number;
-  valorUnitario: number;
-  lucroTotal: number;
-  lucroAtual: number;
-  data: string;
-  status: "ativa" | "finalizada" | "cancelada";
+export interface AdminLoginResult {
+  expiresAt: string;
+  sessionId: string;
 }
 
-// ---------------------------------------------------------------------------
-// Verificação de ingresso
-// ---------------------------------------------------------------------------
-
-export interface VerificarIngressoRequest {
-  cpf?: string; // Opcional
-  nome?: string; // Opcional
+export interface AdminSession {
+  authenticated: boolean;
+  tokenId: string;
+  expiresAt: string;
 }
 
-export interface VerificarIngressoResponse {
-  sucesso: boolean;
-  mensagem: string;
-  ingresso?: Ingresso;
-  hash?: string;
+export interface GuestStats {
+  total: number;
+  active: number;
+  used: number;
+  cancelled: number;
 }
 
-// ---------------------------------------------------------------------------
-// Verificação de convidado
-// ---------------------------------------------------------------------------
+export interface DashboardTotals {
+  events: number;
+  activeEvents: number;
+  totalTickets: number;
+  issuedTickets: number;
+  availableTickets: number;
+  revenueInCents: number;
+  revenue: number;
+  occupancyRate: number;
+  guests: GuestStats;
+}
 
-/**
- * Payload para verificar um convidado.
- * Pelo menos um dos campos deve ser fornecido.
- */
-export interface VerificarConvidadoRequest {
+export interface DashboardEvent extends Event {
+  revenueInCents: number;
+  revenue: number;
+  occupancyRate: number;
+}
+
+export interface DashboardData {
+  totals: DashboardTotals;
+  events: DashboardEvent[];
+}
+
+export interface CreateGuestInput {
+  eventId: string;
+  name: string;
+  email: string;
+  cpf?: string;
+}
+
+export interface LookupGuestInput {
   email?: string;
   cpf?: string;
-  hash?: string;
+  name?: string;
 }
 
-export interface EventoConvidado {
-  nome: string;
-  data: string;
-  local: string;
+export interface ListEventsParams {
+  page?: number;
+  limit?: number;
+  status?: EventStatus;
+  search?: string;
 }
 
-/**
- * Resposta de /api/verificar-convidado.
- */
-export interface VerificarConvidadoResponse {
-  sucesso: boolean;
-  mensagem: string;
-  data?: {
-    id?: string;
-    nome?: string;
-    email?: string;
-    ticketHash?: string;
-    status: string;
-    checkedInAt?: string | null;
-    evento: EventoConvidado;
-  };
+export interface ListGuestsParams {
+  page?: number;
+  limit?: number;
+  eventId?: string;
+  status?: GuestStatus;
+  search?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Login / autenticação administrativa
-// ---------------------------------------------------------------------------
-
-export interface AdminLoginRequest {
-  hash: string;
+export interface CreateEventInput {
+  name: string;
+  description: string;
+  imageUrl?: string | null;
+  startsAt: string;
+  venue: string;
+  priceInCents: number;
+  totalTickets: number;
+  termsOfUse: string;
+  status?: EventStatus;
 }
 
-export interface AdminLoginResponse {
-  sucesso: boolean;
-  token?: string;
-  mensagem: string;
-}
-
-export interface UseAdminAuthReturn {
-  token: string | null;
-  isAuthenticated: boolean;
-  logout: () => void;
-  fetchWithAuth: (input: RequestInfo, init?: RequestInit) => Promise<Response>;
-}
-
-// ---------------------------------------------------------------------------
-// Check-in (admin)
-// ---------------------------------------------------------------------------
-
-export interface AdminCheckinRequest {
-  hash?: string;
-  cpf?: string;
-}
-
-export interface AdminCheckinResponse {
-  sucesso: boolean;
-  mensagem: string;
-  data?: {
-    nome: string;
-    email: string;
-    cpf: string;
-    evento: string;
-    checkinAt: string;
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Eventos (admin)
-// ---------------------------------------------------------------------------
-
-export interface AdminEventoRequest {
-  nome: string;
-  descricao: string;
-  local: string;
-  data: string; // ISO date string
-  preco: number;
-  quantidadeTotal: number;
-  termosUso?: string;
-  imagemUrl?: string;
-}
-
-export interface AdminEventoResponse {
-  sucesso: boolean;
-  mensagem: string;
-  data?: any; // could be the created event
-}
-
-// ---------------------------------------------------------------------------
-// Convidados (admin)
-// ---------------------------------------------------------------------------
-
-export interface AdminConvidado {
-  id: string;
-  nome: string;
-  email: string;
-  cpf: string;
-  status: string;
-  evento: string;
-  dataCompra: string;
-  checkinAt?: string;
-}
-
-export interface AdminConvidadosResponse {
-  sucesso: boolean;
-  mensagem?: string;
-  data?: AdminConvidado[];
-}
+export type UpdateEventInput = Partial<CreateEventInput>;

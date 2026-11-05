@@ -2,6 +2,17 @@
 
 import { useState } from "react";
 import {
+  AlertCircle,
+  Calendar,
+  CheckCircle,
+  Loader2,
+  Mail,
+  MapPin,
+  Search,
+  Ticket,
+  User,
+} from "lucide-react";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -13,334 +24,265 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Search, CheckCircle, XCircle, Loader2, Ticket } from "lucide-react";
-import { MESSAGES } from "@/lib/constants";
-import { VerificarConvidadoRequest, VerificarConvidadoResponse } from "@/types";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ApiError, lookupGuest } from "@/lib/api";
+import {
+  formatDateTime,
+  GUEST_STATUS_LABELS,
+  guestStatusClass,
+} from "@/lib/format";
+import { formatarCPF, validarCPF } from "@/lib/validations";
+import type { Guest, LookupGuestInput } from "@/types";
+
+type LookupType = "email" | "cpf" | "name";
+
+const LOOKUP_LABELS: Record<LookupType, string> = {
+  email: "E-mail",
+  cpf: "CPF",
+  name: "Nome",
+};
 
 export default function VerificarPage() {
-  const [tipoBusca, setTipoBusca] = useState<"cpf" | "email" | "hash">("email");
-  const [formData, setFormData] = useState<VerificarConvidadoRequest>({
-    cpf: "",
-    email: "",
-    hash: "",
-  });
+  const [tipoBusca, setTipoBusca] = useState<LookupType>("email");
+  const [valor, setValor] = useState("");
   const [loading, setLoading] = useState(false);
-  const [resultado, setResultado] = useState<VerificarConvidadoResponse | null>(
-    null
-  );
+  const [guest, setGuest] = useState<Guest | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleInputChange = (
-    field: keyof VerificarConvidadoRequest,
-    value: string
-  ) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
+  function changeType(next: LookupType) {
+    setTipoBusca(next);
+    setValor("");
+    setGuest(null);
+    setError(null);
+  }
 
-  const formatCPF = (value: string) => {
-    // Remove tudo que não é dígito
-    const numbers = value.replace(/\D/g, "");
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setGuest(null);
 
-    // Aplica a máscara do CPF
-    if (numbers.length <= 11) {
-      return numbers.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
-    }
-
-    return numbers
-      .slice(0, 11)
-      .replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
-  };
-
-  const handleCPFChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCPF(e.target.value);
-    handleInputChange("cpf", formatted);
-  };
-
-  const verificarConvidado = async () => {
-    const valor = tipoBusca === "cpf" ? formData.cpf : formData.email;
-
-    if (!valor) {
-      setResultado({
-        sucesso: false,
-        mensagem: `Por favor, preencha o campo ${
-          tipoBusca === "cpf" ? "CPF" : "Email"
-        }.`,
-      });
+    const trimmed = valor.trim();
+    if (!trimmed) {
+      setError(`Informe seu ${LOOKUP_LABELS[tipoBusca].toLowerCase()}.`);
       return;
     }
 
+    const payload: LookupGuestInput = {};
+    if (tipoBusca === "email") {
+      payload.email = trimmed.toLowerCase();
+    } else if (tipoBusca === "cpf") {
+      const digits = trimmed.replace(/\D/g, "");
+      if (!validarCPF(digits)) {
+        setError("CPF inválido. Confira os números informados.");
+        return;
+      }
+      payload.cpf = digits;
+    } else {
+      payload.name = trimmed;
+    }
+
     setLoading(true);
-    setResultado(null);
-
     try {
-      // Prepara o payload para a API
-      const payload: VerificarConvidadoRequest = {};
-
-      if (tipoBusca === "email") {
-        payload.email = formData.email;
+      const found = await lookupGuest(payload);
+      setGuest(found);
+    } catch (caught) {
+      if (caught instanceof ApiError) {
+        setError(
+          caught.status === 404
+            ? "Nenhum convidado foi encontrado com esses dados."
+            : caught.message
+        );
       } else {
-        payload.cpf = formData.cpf;
+        setError("Não foi possível consultar o ingresso. Tente novamente.");
       }
-
-      // Chama a API local que faz proxy para a API externa
-      const response = await fetch("/api/verificar-convidado", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erro na API: ${response.status}`);
-      }
-
-      const apiResponse: VerificarConvidadoResponse = await response.json();
-
-      if (apiResponse.sucesso) {
-        setResultado(apiResponse);
-      } else {
-        setResultado({
-          sucesso: false,
-          mensagem: apiResponse.mensagem || MESSAGES.CONVIDADO_NAO_ENCONTRADO,
-        });
-      }
-    } catch (error) {
-      console.error("Erro ao verificar convidado:", error);
-      setResultado({
-        sucesso: false,
-        mensagem:
-          "Erro ao conectar com o servidor. Verifique sua conexão e tente novamente.",
-      });
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    verificarConvidado();
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("pt-BR", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "confirmado":
-        return (
-          <Badge className="bg-green-100 text-green-800">Confirmado</Badge>
-        );
-      case "pendente":
-        return (
-          <Badge className="bg-yellow-100 text-yellow-800">Pendente</Badge>
-        );
-      case "cancelado":
-        return <Badge className="bg-red-100 text-red-800">Cancelado</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
-  };
+  }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="text-center mb-8">
-          <Ticket className="h-16 w-16 text-blue-600 mx-auto mb-4" />
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            Verificar Convite
+    <div className="container mx-auto px-4 py-10">
+      <div className="mx-auto max-w-2xl">
+        <div className="mb-8 text-center">
+          <Ticket className="mx-auto mb-4 h-16 w-16 text-blue-600" />
+          <h1 className="mb-2 text-3xl font-bold text-foreground">
+            Consultar ingresso
           </h1>
           <p className="text-muted-foreground">
-            Digite seu CPF ou email para verificar o status do seu convite.
+            Consulte seu convite por e-mail, CPF ou nome.
           </p>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Consultar Convite</CardTitle>
+            <CardTitle>Dados do convidado</CardTitle>
             <CardDescription>
-              Escolha como deseja verificar seu convite e preencha o campo
-              correspondente.
+              O CPF retornado pela API é sempre exibido de forma mascarada.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Seleção do tipo de busca */}
               <div className="space-y-3">
                 <Label className="text-base font-medium">
-                  Como você deseja verificar?
+                  Como deseja consultar?
                 </Label>
                 <RadioGroup
                   value={tipoBusca}
-                  onValueChange={(value) =>
-                    setTipoBusca(value as "cpf" | "email")
-                  }
-                  className="flex flex-col space-y-2"
+                  onValueChange={(value) => changeType(value as LookupType)}
+                  className="flex flex-col gap-2 sm:flex-row sm:gap-6"
                 >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="email" id="email-option" />
-                    <Label
-                      htmlFor="email-option"
-                      className="text-sm font-normal"
-                    >
-                      Verificar por Email
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="email" id="lookup-email" />
+                    <Label htmlFor="lookup-email" className="font-normal">
+                      E-mail
                     </Label>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="cpf" id="cpf-option" />
-                    <Label htmlFor="cpf-option" className="text-sm font-normal">
-                      Verificar por CPF
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="cpf" id="lookup-cpf" />
+                    <Label htmlFor="lookup-cpf" className="font-normal">
+                      CPF
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="name" id="lookup-name" />
+                    <Label htmlFor="lookup-name" className="font-normal">
+                      Nome
                     </Label>
                   </div>
                 </RadioGroup>
               </div>
 
-              {/* Campo de entrada */}
               <div className="space-y-2">
-                {tipoBusca === "email" ? (
-                  <>
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="seu@email.com"
-                      value={formData.email}
-                      onChange={(e) =>
-                        handleInputChange("email", e.target.value)
-                      }
-                    />
-                  </>
-                ) : (
-                  <>
-                    <Label htmlFor="cpf">CPF</Label>
-                    <Input
-                      id="cpf"
-                      type="text"
-                      placeholder="000.000.000-00"
-                      value={formData.cpf}
-                      onChange={handleCPFChange}
-                      maxLength={14}
-                    />
-                  </>
-                )}
+                <Label htmlFor="lookup-value">
+                  {tipoBusca === "email" && "E-mail"}
+                  {tipoBusca === "cpf" && "CPF"}
+                  {tipoBusca === "name" && "Nome completo"}
+                </Label>
+                <div className="relative">
+                  {tipoBusca === "email" && (
+                    <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  )}
+                  {tipoBusca === "cpf" && (
+                    <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  )}
+                  {tipoBusca === "name" && (
+                    <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  )}
+                  <Input
+                    id="lookup-value"
+                    type={tipoBusca === "email" ? "email" : "text"}
+                    inputMode={tipoBusca === "cpf" ? "numeric" : undefined}
+                    placeholder={
+                      tipoBusca === "email"
+                        ? "maria@example.com"
+                        : tipoBusca === "cpf"
+                          ? "000.000.000-00"
+                          : "Maria Silva"
+                    }
+                    value={valor}
+                    onChange={(event) =>
+                      setValor(
+                        tipoBusca === "cpf"
+                          ? formatarCPF(event.target.value)
+                          : event.target.value
+                      )
+                    }
+                    className="pl-9"
+                    maxLength={tipoBusca === "cpf" ? 14 : undefined}
+                  />
+                </div>
               </div>
 
-              <Button
-                type="submit"
-                className="w-full"
-                size="lg"
-                disabled={
-                  loading ||
-                  !(tipoBusca === "cpf" ? formData.cpf : formData.email)
-                }
-              >
+              <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Verificando...
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Consultando...
                   </>
                 ) : (
                   <>
-                    <Search className="h-4 w-4 mr-2" />
-                    Verificar Convite
+                    <Search className="h-4 w-4" />
+                    Consultar ingresso
                   </>
                 )}
               </Button>
             </form>
 
-            {/* Resultado da Verificação */}
-            {resultado && (
-              <div className="mt-6">
-                <Alert
-                  className={
-                    resultado.sucesso
-                      ? "border-green-200 bg-green-50"
-                      : "border-red-200 bg-red-50"
-                  }
-                >
-                  {resultado.sucesso ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <XCircle className="h-4 w-4 text-red-600" />
-                  )}
-                  <AlertDescription
-                    className={
-                      resultado.sucesso ? "text-green-800" : "text-red-800"
-                    }
-                  >
-                    {resultado.mensagem}
+            {error && (
+              <Alert variant="destructive" className="mt-6">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {guest && (
+              <div className="mt-6 space-y-4">
+                <Alert className="border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800 dark:text-green-300">
+                    Convite encontrado para {guest.name}.
                   </AlertDescription>
                 </Alert>
 
-                {/* Detalhes do Evento */}
-                {resultado.sucesso && resultado.data && (
-                  <Card className="mt-4">
-                    <CardHeader>
-                      <CardTitle className="flex items-center justify-between">
-                        <span>Detalhes do Evento</span>
-                        {getStatusBadge(resultado.data.status)}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-sm font-medium text-gray-500">
-                            Nome do Evento
-                          </Label>
-                          <p className="text-sm font-medium">
-                            {resultado.data.evento.nome}
-                          </p>
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium text-gray-500">
-                            Local
-                          </Label>
-                          <p className="text-sm font-medium">
-                            {resultado.data.evento.local}
-                          </p>
-                        </div>
-                        <div className="md:col-span-2">
-                          <Label className="text-sm font-medium text-gray-500">
-                            Data e Hora
-                          </Label>
-                          <p className="text-sm font-medium">
-                            {formatDate(resultado.data.evento.data)}
-                          </p>
-                        </div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between gap-3">
+                      <span className="text-lg">{guest.event.name}</span>
+                      <Badge className={guestStatusClass(guest.status)}>
+                        {GUEST_STATUS_LABELS[guest.status]}
+                      </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+                    <div>
+                      <p className="font-medium text-muted-foreground">Nome</p>
+                      <p>{guest.name}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium text-muted-foreground">E-mail</p>
+                      <p className="break-all">{guest.email}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium text-muted-foreground">CPF</p>
+                      <p>{guest.cpf ?? "Não informado"}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium text-muted-foreground">
+                        Status do ingresso
+                      </p>
+                      <p>{GUEST_STATUS_LABELS[guest.status]}</p>
+                    </div>
+                    <div>
+                      <p className="flex items-center gap-1 font-medium text-muted-foreground">
+                        <Calendar className="h-3.5 w-3.5" /> Data e hora
+                      </p>
+                      <p>{formatDateTime(guest.event.startsAt)}</p>
+                    </div>
+                    <div>
+                      <p className="flex items-center gap-1 font-medium text-muted-foreground">
+                        <MapPin className="h-3.5 w-3.5" /> Local
+                      </p>
+                      <p>{guest.event.venue}</p>
+                    </div>
+                    {guest.checkedInAt && (
+                      <div className="sm:col-span-2">
+                        <p className="font-medium text-muted-foreground">
+                          Check-in realizado em
+                        </p>
+                        <p>{formatDateTime(guest.checkedInAt)}</p>
                       </div>
-                    </CardContent>
-                  </Card>
-                )}
+                    )}
+                  </CardContent>
+                </Card>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Informações Adicionais */}
-        <div className="mt-8 text-center">
-          <p className="text-sm text-gray-500 mb-4">
-            Não encontrou seu convite? Entre em contato conosco.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-2 justify-center">
-            <Button variant="outline" size="sm">
-              Suporte via WhatsApp
-            </Button>
-            <Button variant="outline" size="sm">
-              Enviar Email
-            </Button>
-          </div>
-        </div>
+        <p className="mt-8 text-center text-sm text-muted-foreground">
+          O código do ingresso não é exibido nesta página por segurança. Use o
+          código recebido na confirmação da inscrição.
+        </p>
       </div>
     </div>
   );
